@@ -1,0 +1,238 @@
+#!/bin/sh -e
+#
+# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+#
+# This file is part of the skonfig set __unbound.
+#
+# This set is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This set is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this set. If not, see <http://www.gnu.org/licenses/>.
+#
+
+shquot() {
+	sed -e "s/'/'\\\\''/g" -e "1s/^/'/" -e "\$s/\$/'/" <<-EOF
+	$*
+	EOF
+}
+
+mkdir "${__object:?}/files"
+
+# Calculate config diff
+config_diff_lines=$(
+	diff_line() {
+		# shellcheck disable=SC2059
+		printf '%s %s: %s\n' "$1" "$2" "$(printf "${3:-%s}" "${4-}")"
+	}
+	get_param() { head -n 1 "${__object:?}/parameter/${1:?}"; }
+	bool_value() {
+		test $(case $1 in (no-*) echo '!' ;; esac) -f "${__object:?}/parameter/${1:?}" \
+			&& echo yes || echo no
+	}
+
+	# Automatic options (the type guesses the correct value automatically)
+	if test -f "${__object:?}/parameter/num-threads"
+	then
+		diff_line '=' server:num-threads %u "$(get_param num-threads)"
+	else
+		read -r cpu_cores <"${__global:?}/explorer/cpu_cores"
+		if test $((cpu_cores)) -gt 0
+		then
+			diff_line '=' server:num-threads %u $((cpu_cores))
+		else
+			diff_line '-' server:num-threads
+		fi
+	fi
+
+	# Boolean options
+	diff_line '=' server:do-ip4 %s "$(bool_value no-ipv4)"
+	diff_line '=' server:do-ip6 %s "$(bool_value no-ipv6)"
+	diff_line '=' server:hide-version %s "$(bool_value hide-version)"
+	diff_line '=' server:interface-automatic %s "$(bool_value interface-automatic)"
+
+	# "Singleton" options
+	if test -f "${__object:?}/parameter/logfile"
+	then
+		diff_line '=' server:use-syslog %s no
+		diff_line '=' server:logfile %s "$(get_param logfile)"
+	else
+		diff_line '=' server:use-syslog %s yes
+		diff_line '-' server:logfile
+	fi
+	if test -f "${__object:?}/parameter/port"
+	then
+		diff_line '=' server:port %u "$(get_param port)"
+	fi
+
+	if test -f "${__object:?}/parameter/cache-min-ttl"
+	then
+		diff_line '=' server:cache-min-ttl %u "$(get_param cache-min-ttl)"
+	fi
+	if test -f "${__object:?}/parameter/cache-max-ttl"
+	then
+		diff_line '=' server:cache-max-ttl %u "$(get_param cache-max-ttl)"
+	fi
+	if test -f "${__object:?}/parameter/cache-max-negative-ttl"
+	then
+		diff_line '=' server:cache-max-negative-ttl %u "$(get_param cache-max-negative-ttl)"
+	fi
+
+	if test -f "${__object:?}/parameter/msg-cache-size"
+	then
+		diff_line '=' server:msg-cache-size %s "$(get_param msg-cache-size)"
+	fi
+	if test -f "${__object:?}/parameter/rrset-cache-size"
+	then
+		diff_line '=' server:rrset-cache-size %s "$(get_param rrset-cache-size)"
+	fi
+
+	if test -f "${__object:?}/parameter/qname-minimisation"
+	then
+		qname_min=$(get_param qname-minimisation)
+		case ${qname_min}
+		in
+			(yes)
+				diff_line '=' server:qname-minimisation %s yes
+				diff_line '=' server:qname-minimisation-strict %s no
+				;;
+			(strict)
+				diff_line '=' server:qname-minimisation %s yes
+				diff_line '=' server:qname-minimisation-strict %s yes
+				;;
+			(no)
+				diff_line '=' server:qname-minimisation %s no
+				diff_line '=' server:qname-minimisation-strict %s no
+				;;
+			(*)
+				printf 'Invalid --qname-minimisation: %s\n' "${qname_min}" >&2
+				printf 'Must be one of: yes, strict, no\n' >&2
+				exit 1
+				;;
+		esac
+	fi
+
+	# Multiple options
+	diff_line '-' server:interface
+	diff_line '-' server:ip-address
+	if test -s "${__object:?}/parameter/interface"
+	then
+		while read -r _line
+		do
+			diff_line '+' server:interface %s "${_line}"
+		done <"${__object:?}/parameter/interface"
+	fi
+
+	diff_line '-' server:outgoing-interface
+	if test -s "${__object:?}/parameter/outgoing-interface"
+	then
+		while read -r _line
+		do
+			diff_line '+' server:outgoing-interface %s "${_line}"
+		done <"${__object:?}/parameter/outgoing-interface"
+	fi
+
+	diff_line '-' server:private-domain
+	if test -s "${__object:?}/parameter/private-domain"
+	then
+		while read -r _line
+		do
+			diff_line '+' server:private-domain %s "${_line}"
+		done <"${__object:?}/parameter/private-domain"
+	fi
+
+	diff_line '-' server:access-control
+	if test -s "${__object:?}/parameter/access-control"
+	then
+		while read -r _line
+		do
+			diff_line '+' server:access-control %s "${_line}"
+		done <"${__object:?}/parameter/access-control"
+	fi
+	diff_line '-' server:access-control-view
+	if test -s "${__object:?}/parameter/access-control-view"
+	then
+		while read -r _line
+		do
+			diff_line '+' server:access-control-view %s "${_line}"
+		done <"${__object:?}/parameter/access-control-view"
+	fi
+
+	# remote-control section
+	if test -f "${__object:?}/parameter/no-remote-control"
+	then
+		diff_line '=' remote-control:control-enable %s no
+	else
+		# required for other unbound types
+		diff_line '=' remote-control:control-enable %s yes
+
+		diff_line - remote-control:control-interface
+		if test -s "${__object:?}/parameter/rc-interface"
+		then
+			while read -r _line
+			do
+				diff_line '+' remote-control:control-interface %s "${_line}"
+			done <"${__object:?}/parameter/rc-interface"
+			unset -v _line
+		fi
+		if test -s "${__object:?}/parameter/rc-port"
+		then
+			diff_line '=' remote-control:control-port %u "$(get_param rc-port)"
+		fi
+	fi
+)
+
+while read -r _op _opt _value
+do
+	case ${_op}
+	in
+		(+)
+			! grep -qxF "${_opt} ${_value}" "${__object:?}/explorer/options" \
+			|| continue
+			;;
+		(-)
+			grep -qe "^${_opt} ${_value}" "${__object:?}/explorer/options" \
+			|| continue
+			;;
+		(=)
+			test "$(grep -ce "^${_opt} " "${__object:?}/explorer/options")" -ne 1 \
+			|| ! grep -qxF "${_opt} ${_value}" "${__object:?}/explorer/options" \
+			|| continue
+			;;
+		('')
+			continue
+			;;
+	esac
+
+	config_needs_update=true
+	case ${_opt}
+	in
+		(remote-control:*)
+			printf '%s %s %s\n' "${_op}" "${_opt}" "${_value}" >>"${__object:?}/files/rc-config-diff"
+			;;
+		(*)
+			printf '%s %s %s\n' "${_op}" "${_opt}" "${_value}" >>"${__object:?}/files/server-config-diff"
+			;;
+	esac
+done <<-EOF
+${config_diff_lines-}
+EOF
+
+
+if ${config_needs_update:-false}
+then
+	# copy config update script to remote
+
+	__object_remote=$(cat "${__object:?}/explorer/remote-object")
+	printf '%s %s %s <%s\n' \
+		"${__remote_exec:?}" "$(shquot "${__target_host:?}")" \
+		"$(shquot "mkdir $(shquot "${__object_remote:?}/files") && cat >$(shquot "${__object_remote:?}/files/update_unbound_conf.awk")")" \
+		"$(shquot "${__type:?}/files/update_unbound_conf.awk")"
+fi
