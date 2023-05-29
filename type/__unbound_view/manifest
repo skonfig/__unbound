@@ -1,0 +1,82 @@
+#!/bin/sh -e
+#
+# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+#
+# This file is part of the skonfig set __unbound.
+#
+# This set is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This set is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this set. If not, see <http://www.gnu.org/licenses/>.
+#
+
+CONF_BASE_DIR=/etc/unbound
+UNBOUND_CONF_DIR=${CONF_BASE_DIR:?}/unbound.conf.d
+
+view_name=${__object_id:?}
+
+state_should=$(cat "${__object:?}/parameter/state")
+# Generate slug to be used in file names
+file_name_slug=$(printf '%s' "${view_name}" | tr -c 'A-Za-z0-9-.' '_' | sed 's/\.$//')
+
+test -n "${file_name_slug}" || {
+	printf 'Slug generation failed for: %s\n' "${view_name}" >&2
+	test -n "${view_name}" || printf 'Make sure the view\047s name is non-empty.\n' >&2
+	exit 1
+}
+
+__directory "${CONF_BASE_DIR}" \
+	--state pre-exists
+
+require=__directory"${CONF_BASE_DIR}" \
+__directory "${UNBOUND_CONF_DIR}" \
+	--state present \
+	--owner 0 --group 0 --mode 0755
+
+
+config_file="${UNBOUND_CONF_DIR}/${file_name_slug}.view.conf"
+
+if test "${state_should}" != absent
+then
+	printf 'view:\n'
+	printf '\tname: "%s"\n' "$(
+		printf '%s\n' "${view_name}" | sed -e "s/\"/\\\\&/g")"
+
+	# boolean options
+	if test -f "${__object:?}/parameter/view-first"
+	then
+		printf '\tview-first: yes\n'
+	fi
+
+	# "multiple" options
+	for _opt in local-zone local-data local-data-ptr
+	do
+		# Output options
+		test -s "${__object:?}/parameter/${_opt}" || continue
+
+		case ${_opt}
+		in
+			(local-data*)
+				sed -e "s/'/\\\\&/g" -e "s/^.*$/	${_opt}: '&'/" "${__object:?}/parameter/${_opt}"
+				;;
+			(*)
+				sed -e "s/^/	${_opt}: /" "${__object:?}/parameter/${_opt}"
+				;;
+		esac
+	done
+fi \
+| require="__directory${UNBOUND_CONF_DIR}" \
+  __file "${config_file}" \
+	  --state "${state_should}" \
+	  --owner 0 --group 0 --mode 0644 \
+	  --source - \
+	  --onchange "unbound-checkconf ${config_file:?} && if unbound-control status >/dev/null 2>&1; then unbound-control reload_keep_cache; fi"
+# FIXME: the config file should only be updated if checkconf succeeds

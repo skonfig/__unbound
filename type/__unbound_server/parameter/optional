@@ -1,0 +1,11 @@
+cache-max-ttl
+cache-max-negative-ttl
+cache-min-ttl
+logfile
+msg-cache-size
+num-threads
+port
+qname-minimisation
+rc-port
+rrset-cache-size
+state

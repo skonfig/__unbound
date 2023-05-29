@@ -1,0 +1,5 @@
+check-zonemd
+enable-fallback
+not-for-downstream
+not-for-upstream
+zonemd-reject-absence

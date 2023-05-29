@@ -1,0 +1,137 @@
+#!/bin/sh -e
+#
+# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+#
+# This file is part of the skonfig set __unbound.
+#
+# This set is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This set is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this set. If not, see <http://www.gnu.org/licenses/>.
+#
+
+shquot() {
+	sed -e "s/'/'\\\\''/g" -e "1s/^/'/" -e "\$s/\$/'/" <<-EOF
+	$*
+	EOF
+}
+
+CONF_BASE_PATH=/etc/unbound
+unbound_conf="${CONF_BASE_PATH}/unbound.conf"
+
+os=$(cat "${__global:?}/explorer/os")
+
+# FIXME: should use package_name as determined in manifest instead
+if grep -q '^__package[_a-z]*/unbound[0-9]*:installed' "${__messages_in:?}"
+then
+	fresh_install=true
+else
+	fresh_install=false
+fi
+
+# Install post-processing
+if ${fresh_install}
+then
+	# OS-specific processing
+	case ${os}
+	in
+		(debian|devuan)
+			# Debian does not install a proper config file in
+			# /etc/unbound/unbound.conf, so we copy the example.
+			cat <<-EOF
+			if test -r /usr/share/doc/unbound/examples/unbound.conf
+			then
+			    cat /usr/share/doc/unbound/examples/unbound.conf >$(shquot "${unbound_conf}")
+			fi
+			EOF
+			;;
+	esac
+
+	# Run `unbound-control-setup` after install to generate a key pair for
+	# unbound-control. Even if remote control is disabled, having the key pair does
+	# not hurt.
+	echo 'unbound-control-setup'
+
+	# Config post-processing
+	# Ensure that *.conf files from unbound.conf.d are included
+	cat <<-EOF
+	grep -q '^include-toplevel: "/etc/unbound/unbound\.conf\.d/\*\(\.conf\)\{,1\}?"' $(shquot "${unbound_conf}") \
+	|| printf '\ninclude-toplevel: "/etc/unbound/unbound.conf.d/*.conf"\n' >>$(shquot "${unbound_conf}")
+	EOF
+fi
+
+config_updated=false
+
+if test -s "${__object:?}/files/server-config-diff"
+then
+	cat <<-CODE
+	awk -f "\${__object:?}/files/update_unbound_conf.awk" $(shquot "${unbound_conf:?}") <<'EOF' >$(shquot "${unbound_conf:?}.tmp") \
+	&& unbound-checkconf $(shquot "${unbound_conf:?}.tmp") && cat $(shquot "${unbound_conf:?}.tmp") >$(shquot "${unbound_conf:?}") || exit 1
+	$(cat "${__object:?}/files/server-config-diff")
+	EOF
+	rm -f $(shquot "${unbound_conf:?}.tmp")
+	CODE
+	config_updated=true
+fi
+
+if test -s "${__object:?}/files/rc-config-diff"
+then
+	case ${os}
+	in
+		(debian|devuan)
+			rc_config_file='/etc/unbound/unbound.conf.d/remote-control.conf'
+			;;
+		(*)
+			rc_config_file=${unbound_conf:?}
+			;;
+	esac
+
+	cat <<-CODE
+	awk -f "\${__object:?}/files/update_unbound_conf.awk" $(shquot "${rc_config_file:?}") <<'EOF' >$(shquot "${rc_config_file:?}.tmp") \
+	&& unbound-checkconf $(shquot "${rc_config_file:?}.tmp") && cat $(shquot "${rc_config_file:?}.tmp") >$(shquot "${rc_config_file:?}") || exit 1
+	$(cat "${__object:?}/files/rc-config-diff")
+	EOF
+	rm -f $(shquot "${rc_config_file:?}.tmp")
+	CODE
+	config_updated=true
+fi
+
+if ${config_updated?}
+then
+	echo 'config updated' >>"${__messages_out:?}"
+fi
+
+if ${fresh_install} || ${config_updated?}
+then
+	# NOTE: The unbound service needs to be restarted after running
+	#       unbound-control-setup if it is running to make unbound-control work.
+	# NOTE: We try to restart unbound only if it has been running before.
+	case $(cat "${__global:?}/explorer/init")
+	in
+		(systemd)
+			echo 'systemctl try-restart unbound.service'
+			;;
+		(sysvinit)
+			cat <<-'EOF'
+			if test -x /etc/init.d/unbound && /etc/init.d/unbound status >/dev/null 2>&1
+			then
+			    /etc/init.d/unbound restart
+			fi
+			EOF
+			;;
+		(*openrc*)
+			echo 'rc-service --ifstarted unbound restart'
+			;;
+		(*)
+			echo "Don't know how to restart service with your init. "\
+			     "Restart nsd service manually to make nsd-control work." >&2
+	esac
+fi

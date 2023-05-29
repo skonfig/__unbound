@@ -1,0 +1,67 @@
+#!/bin/sh -e
+#
+# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+#
+# This file is part of the skonfig set __unbound.
+#
+# This set is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This set is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this set. If not, see <http://www.gnu.org/licenses/>.
+#
+
+CONF_BASE_DIR='/etc/unbound'
+
+os=$(cat "${__global:?}/explorer/os")
+state_should=$(cat "${__object:?}/parameter/state")
+
+case ${os}
+in
+	(debian|devuan)
+		package_name=unbound
+		;;
+	(*)
+		: "${__type:?}"  # make shellcheck happy
+		printf "Your operating system (%s) is currently not supported by this type (%s)\n" "${os}" "${__type##*/}" >&2
+		printf "Please contribute an implementation for it if you can.\n" >&2
+		exit 1
+		;;
+esac
+
+__package "${package_name}" \
+	--state "${state_should}"
+
+case ${state_should}
+in
+	(present)
+		__package dns-root-data
+
+		require="__package/${package_name}" \
+		__start_on_boot unbound
+
+		require=__package/"${package_name}" \
+		__directory "${CONF_BASE_DIR}" \
+			--state pre-exists
+
+		require="__directory${CONF_BASE_DIR}" \
+		__directory "${CONF_BASE_DIR}/unbound.conf.d" \
+			--state present \
+			--owner 0 --group 0 --mode 0755
+
+		# FIXME: ln -s /usr/share/dns/root.key /var/lib/unbound/root.key
+		;;
+	(absent)
+		;;
+	(*)
+		printf 'Invalid --state: %s\n' "${state_should}" >&2
+		exit 1
+		;;
+esac

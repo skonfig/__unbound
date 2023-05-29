@@ -1,0 +1,106 @@
+#!/bin/sh -e
+#
+# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+#
+# This file is part of the skonfig set __unbound.
+#
+# This set is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This set is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this set. If not, see <http://www.gnu.org/licenses/>.
+#
+
+CONF_BASE_DIR=/etc/unbound
+UNBOUND_CONF_DIR=${CONF_BASE_DIR:?}/unbound.conf.d
+
+acl_name=${__object_id:?}
+
+state_should=$(cat "${__object:?}/parameter/state")
+# Generate slug to be used in file names
+file_name_slug=$(printf '%s' "${acl_name}" | tr -c 'A-Za-z0-9-.' '_' | sed 's/\.$//')
+
+test -n "${file_name_slug}" || {
+	printf 'Slug generation failed for: %s\n' "${acl_name}" >&2
+	test -n "${acl_name}" || printf 'Make sure the auth-zone\047s name is non-empty.\n' >&2
+	exit 1
+}
+
+__directory "${CONF_BASE_DIR}" \
+	--state pre-exists
+
+require=__directory"${CONF_BASE_DIR}" \
+__directory "${UNBOUND_CONF_DIR}" \
+	--state present \
+	--owner 0 --group 0 --mode 0755
+
+
+config_file="${UNBOUND_CONF_DIR}/${file_name_slug}.acl.conf"
+
+mkdir "${__object:?}/files"
+: >"${__object:?}/files/acl.conf"
+
+if test "${state_should}" != absent
+then
+	test -s "${__object:?}/parameter/action" || {
+		printf 'The parameter --action is required for --state %s\n' "${state_should}" >&2
+		exit 1
+	}
+	read -r _action <"${__object:?}/parameter/action"
+
+	ls -l "${__object:?}/parameter" >&2
+
+	if test -s "${__object:?}/parameter/tag"
+	then
+		_tags=$(sed -e :a -e '$!N' -e '$!ba' -e 's/\n/ /g' "${__object:?}/parameter/tag")
+	fi
+
+	if test -s "${__object:?}/parameter/netblock"
+	then
+		printf 'server:\n'
+
+		if test -n "${_tags-}"
+		then
+			# TODO: escape quotes
+			printf '\tdefine-tag: "%s"\n' "${_tags}"
+		fi
+
+		while read -r _netblock
+		do
+		{
+			printf '\taccess-control: %s %s\n' "${_netblock}" "${_action}"
+
+			if test -s "${__object:?}/parameter/view"
+			then
+				printf '\taccess-control-view: %s %s\n' \
+					"${_netblock}" "$(head -n 1 "${__object:?}/parameter/view")"
+			fi
+
+			if test -n "${_tags-}"
+			then
+				# TODO: escape quotes
+				printf '\taccess-control-tag: %s "%s"\n' \
+					"${_netblock}" "${_tags}"
+			fi
+
+		} </dev/null
+		done <"${__object:?}/parameter/netblock"
+	fi >"${__object:?}/files/acl.conf"
+fi
+
+# NOTE: run unbound-checkconf without file parameter because if --view is used,
+#       a "cannot find view" error will be produced
+require="__directory${UNBOUND_CONF_DIR}" \
+__file "${config_file}" \
+	--state "${state_should}" \
+	--owner 0 --group 0 --mode 0644 \
+	--source "${__object:?}/files/acl.conf" \
+	--onchange "unbound-checkconf && if unbound-control status >/dev/null 2>&1; then unbound-control reload_keep_cache; fi"
+# FIXME: the config file should only be updated if checkconf succeeds
