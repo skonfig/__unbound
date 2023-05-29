@@ -28,6 +28,7 @@ CONF_BASE_PATH=/etc/unbound
 unbound_conf="${CONF_BASE_PATH}/unbound.conf"
 
 os=$(cat "${__global:?}/explorer/os")
+os_version=$(cat "${__global:?}/explorer/os_version")
 
 # FIXME: should use package_name as determined in manifest instead
 if grep -q '^__package[_a-z]*/unbound[0-9]*:installed' "${__messages_in:?}"
@@ -87,7 +88,20 @@ then
 	case ${os}
 	in
 		(debian|devuan)
-			rc_config_file='/etc/unbound/unbound.conf.d/remote-control.conf'
+			is_bookworm=$(
+				case ${os}
+				in
+					(debian) test "${os_version}" = 11.99 -o "${os_version%%.*}" -ge 12 ;;
+					(devuan) test "${os_version}" = 4.99 -o "${os_version%%.*}" -ge 5 ;;
+					(*) false ;;
+				esac && echo true || echo false)
+
+			if ${is_bookworm:-false}
+			then
+				rc_config_file='/etc/unbound/unbound.conf.d/remote-control.conf'
+			else
+				rc_config_file=${unbound_conf:?}
+			fi
 			;;
 		(*)
 			rc_config_file=${unbound_conf:?}
