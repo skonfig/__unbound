@@ -39,7 +39,7 @@ else
 fi
 
 # Install post-processing
-if ${fresh_install}
+if ${fresh_install?} || test ! -s "${__object:?}/explorer/options"
 then
 	# OS-specific processing
 	case ${os}
@@ -48,25 +48,32 @@ then
 			# Debian does not install a proper config file in
 			# /etc/unbound/unbound.conf, so we copy the example.
 			cat <<-EOF
-			if test -r /usr/share/doc/unbound/examples/unbound.conf
+			if ${fresh_install?} || test ! -s $(shquot "${unbound_conf}")
 			then
-			    cat /usr/share/doc/unbound/examples/unbound.conf >$(shquot "${unbound_conf}")
+			    if test -r /usr/share/doc/unbound/examples/unbound.conf
+			    then
+			        cat /usr/share/doc/unbound/examples/unbound.conf >$(shquot "${unbound_conf}")
+			    fi
 			fi
 			EOF
 			;;
 	esac
 
+	# Config post-processing
+	# Ensure that *.conf files from unbound.conf.d are included
+	cat <<-EOF
+	grep -q '^include-toplevel: "/etc/unbound/unbound\.conf\.d/\*\(\.conf\)\{0,1\}"' $(shquot "${unbound_conf}") \
+	|| printf '\ninclude-toplevel: "/etc/unbound/unbound.conf.d/*.conf"\n' >>$(shquot "${unbound_conf}")
+	EOF
+fi
+
+if ${fresh_install?}
+then
+
 	# Run `unbound-control-setup` after install to generate a key pair for
 	# unbound-control. Even if remote control is disabled, having the key pair does
 	# not hurt.
 	echo 'unbound-control-setup'
-
-	# Config post-processing
-	# Ensure that *.conf files from unbound.conf.d are included
-	cat <<-EOF
-	grep -q '^include-toplevel: "/etc/unbound/unbound\.conf\.d/\*\(\.conf\)\{,1\}?"' $(shquot "${unbound_conf}") \
-	|| printf '\ninclude-toplevel: "/etc/unbound/unbound.conf.d/*.conf"\n' >>$(shquot "${unbound_conf}")
-	EOF
 fi
 
 config_updated=false
@@ -123,12 +130,13 @@ then
 	echo 'config updated' >>"${__messages_out:?}"
 fi
 
-if ${fresh_install} || ${config_updated?}
+if ${fresh_install?} || ${config_updated?}
 then
 	# NOTE: The unbound service needs to be restarted after running
 	#       unbound-control-setup if it is running to make unbound-control work.
 	# NOTE: We try to restart unbound only if it has been running before.
-	case $(cat "${__global:?}/explorer/init")
+	read -r init <"${__global:?}/explorer/init"
+	case ${init}
 	in
 		(systemd)
 			echo 'systemctl try-restart unbound.service'
