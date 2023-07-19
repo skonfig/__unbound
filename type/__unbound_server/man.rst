@@ -131,6 +131,8 @@ interface-automatic
 
    This feature is experimental, and needs support in your OS for particular
    socket options.
+hide-identity
+   Configure unbound to not answer ``id.server`` and ``hostname.bind`` queries.
 hide-version
    Configure unbound to not answer ``VERSION.BIND`` and ``VERSION.SERVER``
    ``CHAOS`` class queries.

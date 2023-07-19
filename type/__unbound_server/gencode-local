@@ -55,6 +55,7 @@ config_diff_lines=$(
 	# Boolean options
 	diff_line '=' server:do-ip4 %s "$(bool_value no-ipv4)"
 	diff_line '=' server:do-ip6 %s "$(bool_value no-ipv6)"
+	diff_line '=' server:hide-identity %s "$(bool_value hide-identity)"
 	diff_line '=' server:hide-version %s "$(bool_value hide-version)"
 	diff_line '=' server:interface-automatic %s "$(bool_value interface-automatic)"
 

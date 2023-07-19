@@ -1,4 +1,5 @@
 interface-automatic
+hide-identity
 hide-version
 no-ipv4
 no-ipv6
