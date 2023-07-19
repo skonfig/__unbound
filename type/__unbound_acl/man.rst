@@ -8,12 +8,8 @@ cdist-type__unbound_acl - Manage unbound access-control directives
 
 DESCRIPTION
 -----------
-This type can be used to manage unbound ``access-control`` configuration options.
-
-
-REQUIRED PARAMETERS
--------------------
-None.
+This type can be used to manage unbound's ``access-control`` configuration
+options.
 
 
 OPTIONAL PARAMETERS
@@ -44,11 +40,6 @@ view
    one of the ``--netblocks``
 
 
-BOOLEAN PARAMETERS
-------------------
-None.
-
-
 EXAMPLES
 --------
 
@@ -71,7 +62,7 @@ SEE ALSO
 
 AUTHORS
 -------
-Dennis Camera <dennis.camera--@--riiengineering.ch>
+* Dennis Camera <dennis.camera--@--riiengineering.ch>
 
 
 COPYING

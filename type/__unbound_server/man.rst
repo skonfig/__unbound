@@ -9,7 +9,6 @@ unbound DNS resolver
 
 DESCRIPTION
 -----------
-
 This type can be used to install the unbound DNS resolver and manage its server
 configuration (in ``/etc/unbound/unbound.conf`` that is).
 
@@ -18,11 +17,6 @@ to this type explicitly overwrites the value to something else.
 Also note that removing a singleton optional parameter later on will not restore
 the distribution default, but simply leave the config as it is.
 Removing a multiple optional parameter will remove that value from the config.
-
-
-REQUIRED PARAMETERS
--------------------
-None.
 
 
 OPTIONAL PARAMETERS
@@ -36,14 +30,14 @@ access-control
    This parameter can be used multiple times.
 access-control-view
    Set view for given access control element.
+cache-max-negative-ttl
+   Maximum time to live for negative responses.
+   This applies to ``NXDOMAIN`` and ``NODATA`` answers.
 cache-max-ttl
    Maximum time to live (TTL) for RRsets and messages in the cache.
 
    Can be lowered to force the resolver to query for data more often, and not
    trust (very large) TTL values.
-cache-max-negative-ttl
-   Maximum time to live for negative responses.
-   This applies to ``NXDOMAIN`` and ``NODATA`` answers.
 cache-min-ttl
    Minimum time to live (TTL) for RRsets and messages in the cache.
 
@@ -70,7 +64,7 @@ num-threads
    The number of threads to create to serve clients.
    Use ``1`` for no threading.
 
-   Defaults to: number of CPU cores on target.
+   Defaults to: the number of CPU cores on target.
 outgoing-interface
    Interface to use to connect to the network. This interface is used to send
    queries to authoritative servers and receive their replies. Can be given
@@ -78,7 +72,8 @@ outgoing-interface
 port
    The port unbound should answer queries on.
 private-domain
-   Specify a domain (and all of its subdomains) which is allowed to contain private addresses.
+   Specify a domain (and all of its subdomains) which is allowed to contain
+   private addresses.
 
    Can be used multiple times.
 qname-minimisation
@@ -88,12 +83,12 @@ qname-minimisation
 
    Value must be one of:
 
-   yes
+   ``yes``
       enable QNAME minimisation, but be gentle with broken name servers.
-   strict
+   ``strict``
       enable QNAME minimisation without fallback for broken name servers.
-	  cf. :strong:`unbound.conf`\ (5) for `qname-minimisation-strict` option.
-   no
+      cf. :strong:`unbound.conf`\ (5) for ``qname-minimisation-strict`` option.
+   ``no``
       disable QNAME minimisation
 
    Defaults to: ``yes``
@@ -125,17 +120,17 @@ state
 
 BOOLEAN PARAMETERS
 ------------------
+hide-identity
+   Configure unbound to not answer ``id.server`` and ``hostname.bind`` queries.
+hide-version
+   Configure unbound to not answer ``VERSION.BIND`` and ``VERSION.SERVER``
+   ``CHAOS`` class queries.
 interface-automatic
    Listen on all addresses on all (current and future) interfaces, detect the
    source interface on UDP queries and copy them to replies.
 
    This feature is experimental, and needs support in your OS for particular
    socket options.
-hide-identity
-   Configure unbound to not answer ``id.server`` and ``hostname.bind`` queries.
-hide-version
-   Configure unbound to not answer ``VERSION.BIND`` and ``VERSION.SERVER``
-   ``CHAOS`` class queries.
 no-ipv4
    Do not listen on IPv4 port.
 no-ipv6
@@ -160,8 +155,8 @@ BUGS
 ----
 This type assumes that the main server config is located at
 ``/etc/unbound/unbound.conf`` on the target.
-Furthermore, a sanely formatted `unbound.conf` file is assumed, i.e. only one
-configuration option on a single line.
+Furthermore, a sanely formatted :strong:`unbound.conf`\ (5) file is assumed,
+i.e. only one configuration option on a single line.
 
 
 SEE ALSO
@@ -173,7 +168,7 @@ SEE ALSO
 
 AUTHORS
 -------
-Dennis Camera <dennis.camera--@--riiengineering.ch>
+* Dennis Camera <dennis.camera--@--riiengineering.ch>
 
 
 COPYING

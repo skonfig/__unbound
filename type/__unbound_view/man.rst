@@ -11,30 +11,37 @@ DESCRIPTION
 This type can be used to manage unbound views.
 
 
-REQUIRED PARAMETERS
--------------------
-None.
-
-
 OPTIONAL PARAMETERS
 -------------------
 local-data
-   ...
+   ``name type value``, e.g. ``example.com. A 127.0.0.1``
+
+   Configure a local DNS RR entry which is served in response to queries for it.
+
+   The query has to match exactly; if it does not match exactly the type of the
+   zone this RR is within determines how the query is further processed, cf.
+   ``--local-zone``.
 
    The value will be quoted automatically.
 
    Can be used multiple times.
 local-data-ptr
-   ...
+   ``ipaddr name``, e.g. ``192.0.2.4 www.example.com``
+
+   Syntactic sugar for ``--local-data`` to conveniently configure ``PTR`` RRs.
 
    The value will be quoted automatically.
 
    Can be used multiple times.
 local-zone
-   ...
+   ``"zone" type``
 
-   The values needs to be quoted according to the :strong:`unbound.conf`\ (5)
-   file format.
+   Configure a local zone. The type determines the answer which is given to
+   queries for which there is no match from ``--local-data``.
+
+   The name of the zone must be quoted in double quotes.
+
+   For more information on the types available, cf. :strong:`unbound.conf`\ (5).
 
    Can be used multiple times.
 state
@@ -60,8 +67,15 @@ EXAMPLES
 
 .. code-block:: sh
 
-   #
+   # configure a view with some local RRs (simple split-horizon DNS)
    __unbound_view intra \
+      --local-zone '"example.com" transparent' \
+      --local-data 'example.com. A 172.16.0.100' \
+      --local-data 'www.example.com. A 172.16.0.100' \
+      --local-data 'mail.example.com. A 172.16.0.110' \
+      --local-data-ptr '172.16.0.100 www.example.com' \
+      --local-data-ptr '172.16.0.110 mail.example.com' \
+      --view-first
 
 
 SEE ALSO
@@ -73,7 +87,7 @@ SEE ALSO
 
 AUTHORS
 -------
-Dennis Camera <dennis.camera--@--riiengineering.ch>
+* Dennis Camera <dennis.camera--@--riiengineering.ch>
 
 
 COPYING

@@ -11,11 +11,6 @@ DESCRIPTION
 This type can be used to manage unbound auth-zones.
 
 
-REQUIRED PARAMETERS
--------------------
-None.
-
-
 OPTIONAL PARAMETERS
 -------------------
 allow-notify
@@ -41,10 +36,10 @@ url
    Can be used multiple times. The URLs will be tried in turn.
 
 
-
-
 BOOLEAN PARAMETERS
 ------------------
+check-zonemd
+   Check ``ZONEMD`` records in this zone.
 enable-fallback
    Tell Unbound to fall back to querying the internet as a resolver for this
    zone when lookups fail.  For example for DNSSEC validation failures.
@@ -63,8 +58,6 @@ not-for-upstream
 
    Use this parameter if you don't want Unbound to use the zone data as a local
    copy to speed up lookups.
-check-zonemd
-   Check ``ZONEMD`` records in this zone.
 zonemd-reject-absence
    Reject the zone if the ``ZONEMD`` record is absent.
    Without this option, when ``ZONEMD`` is not there it is not checked.
@@ -75,8 +68,9 @@ EXAMPLES
 
 .. code-block:: sh
 
-   #
+   # fetch auth zone example.net from URL
    __unbound_auth_zone example.net \
+      --url 'http://192.0.2.1/unbound-primaries/example.com.zone'
 
 
 SEE ALSO
@@ -88,7 +82,7 @@ SEE ALSO
 
 AUTHORS
 -------
-Dennis Camera <dennis.camera--@--riiengineering.ch>
+* Dennis Camera <dennis.camera--@--riiengineering.ch>
 
 
 COPYING
