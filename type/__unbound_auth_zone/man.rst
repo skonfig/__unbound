@@ -34,6 +34,8 @@ url
    Specify an URL to download a zonefile for the zone from (using HTTP/HTTPS).
 
    Can be used multiple times. The URLs will be tried in turn.
+zonefile
+   Specify a filename where a local copy of the zonefile should be stored.
 
 
 BOOLEAN PARAMETERS
@@ -71,6 +73,15 @@ EXAMPLES
    # fetch auth zone example.net from URL
    __unbound_auth_zone example.net \
       --url 'http://192.0.2.1/unbound-primaries/example.com.zone'
+
+   # keep a local copy of the DNS root zone
+   __unbound_auth_zone . \
+      --primary 'j.root-servers.net' \
+      --primary 'k.root-servers.net' \
+      --primary 'l.root-servers.net' \
+      --enable-fallback \
+      --not-for-downstream \
+      --zonefile '/etc/unbound/root.zone'
 
 
 SEE ALSO

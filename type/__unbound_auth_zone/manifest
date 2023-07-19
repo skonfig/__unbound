@@ -66,6 +66,14 @@ then
 		printf '\t%s: %s\n' ${_opt##*:} "$(bool_value ${_opt%%:*})"
 	done
 
+	# optional options
+	for _opt in zonefile
+	do
+		test -s "${__object:?}/parameter/${_opt}" || continue
+
+		printf '\t%s: %s\n' "${_opt}" "$(cat "${__object:?}/parameter/${_opt}")"
+	done
+
 	# "multiple" options
 	for _opt in primary url allow-notify
 	do
