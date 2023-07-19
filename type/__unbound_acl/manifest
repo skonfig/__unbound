@@ -18,6 +18,10 @@
 # along with this set. If not, see <http://www.gnu.org/licenses/>.
 #
 
+version_ge() {
+	printf '%s\n' "$1" "$2" | sort -t. -r -n | { read -r x; test "${x}" = "$1"; }
+}
+
 CONF_BASE_DIR=/etc/unbound
 UNBOUND_CONF_DIR=${CONF_BASE_DIR:?}/unbound.conf.d
 
@@ -46,6 +50,14 @@ config_file="${UNBOUND_CONF_DIR}/${file_name_slug}.acl.conf"
 
 mkdir "${__object:?}/files"
 : >"${__object:?}/files/acl.conf"
+
+read -r unbound_ver <"${__object:?}/explorer/unbound-version"
+if version_ge "${unbound_ver:-0.0}" 1.17.1
+then
+	unbound_reload_command='unbound-control reload_keep_cache'
+else
+	unbound_reload_command='unbound-control reload'
+fi
 
 if test "${state_should}" != absent
 then
@@ -102,5 +114,5 @@ __file "${config_file}" \
 	--state "${state_should}" \
 	--owner 0 --group 0 --mode 0644 \
 	--source "${__object:?}/files/acl.conf" \
-	--onchange "unbound-checkconf && if unbound-control status >/dev/null 2>&1; then unbound-control reload_keep_cache; fi"
+	--onchange "unbound-checkconf && if unbound-control status >/dev/null 2>&1; then ${unbound_reload_command:?}; fi"
 # FIXME: the config file should only be updated if checkconf succeeds
