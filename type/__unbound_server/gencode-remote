@@ -1,6 +1,6 @@
 #!/bin/sh -e
 #
-# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+# 2023,2024 Dennis Camera (dennis.camera at riiengineering.ch)
 #
 # This file is part of the skonfig set __unbound.
 #
@@ -24,14 +24,15 @@ shquot() {
 	EOF
 }
 
-CONF_BASE_PATH=/etc/unbound
-unbound_conf="${CONF_BASE_PATH}/unbound.conf"
+. "${__type:?}/files/params.sh"
+
+unbound_conf="${CONF_BASE_DIR:?}/unbound.conf"
 
 os=$(cat "${__global:?}/explorer/os")
 os_version=$(cat "${__global:?}/explorer/os_version")
 
-# FIXME: should use package_name as determined in manifest instead
-if grep -q '^__package[_a-z]*/unbound[0-9]*:installed' "${__messages_in:?}"
+# NOTE: careful, $package_name is interpreted as a regular expression here
+if grep -q "^__package[_a-z]*/${package_name:?}[0-9]*:installed" "${__messages_in:?}"
 then
 	fresh_install=true
 else
@@ -61,6 +62,8 @@ then
 
 	# Config post-processing
 	# Ensure that *.conf files from unbound.conf.d are included
+	# TODO: ensure only *.conf is included because this set installs .tmp files
+	#       into conf.d. Update existing config line when needed
 	cat <<-EOF
 	grep -q '^include-toplevel: "/etc/unbound/unbound\.conf\.d/\*\(\.conf\)\{0,1\}"' $(shquot "${unbound_conf}") \
 	|| printf '\ninclude-toplevel: "/etc/unbound/unbound.conf.d/*.conf"\n' >>$(shquot "${unbound_conf}")
@@ -69,7 +72,6 @@ fi
 
 if ${fresh_install?}
 then
-
 	# Run `unbound-control-setup` after install to generate a key pair for
 	# unbound-control. Even if remote control is disabled, having the key pair does
 	# not hurt.

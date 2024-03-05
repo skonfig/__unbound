@@ -1,6 +1,6 @@
 #!/bin/sh -e
 #
-# 2023,2024 Dennis Camera (dennis.camera at riiengineering.ch)
+# 2024 Dennis Camera (dennis.camera at riiengineering.ch)
 #
 # This file is part of the skonfig set __unbound.
 #
@@ -18,36 +18,20 @@
 # along with this set. If not, see <http://www.gnu.org/licenses/>.
 #
 
-. "${__type:?}/files/params.sh"
+# NOTE: sync with explorer/options
+CONF_BASE_DIR=/etc/unbound
 
-state_should=$(cat "${__object:?}/parameter/state")
+os=$(cat "${__global:?}/explorer/os")
 
-__package unbound \
-	--name "${package_name:?}" \
-	--state "${state_should}"
-
-case ${state_should}
+case ${os}
 in
-	(present)
-		__package dns-root-data
-
-		require=__package/unbound \
-		__start_on_boot unbound
-
-		# FIXME: dry-run
-		require=__package/unbound \
-		__directory "${CONF_BASE_DIR}" \
-			--state pre-exists
-
-		require="__directory${CONF_BASE_DIR:?}" \
-		__directory "${CONF_BASE_DIR:?}/unbound.conf.d" \
-			--state present \
-			--owner 0 --group 0 --mode 0755
-		;;
-	(absent)
+	(debian|devuan)
+		package_name=unbound
 		;;
 	(*)
-		printf 'Invalid --state: %s\n' "${state_should}" >&2
+		: "${__type:?}"  # make shellcheck happy
+		printf "Your operating system (%s) is currently not supported by this type (%s)\n" "${os}" "${__type##*/}" >&2
+		printf "Please contribute an implementation for it if you can.\n" >&2
 		exit 1
 		;;
 esac

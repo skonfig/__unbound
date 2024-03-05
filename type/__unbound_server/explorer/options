@@ -20,6 +20,7 @@
 # This explorer prints the currently set options from unbound.conf
 #
 
+# NOTE: sync with files/params.sh
 test -r /etc/unbound/unbound.conf || exit 0
 
 awk '
