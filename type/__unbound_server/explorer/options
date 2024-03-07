@@ -1,6 +1,6 @@
 #!/bin/sh -e
 #
-# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+# 2023,2024 Dennis Camera (dennis.camera at riiengineering.ch)
 #
 # This file is part of the skonfig set __unbound.
 #
@@ -18,21 +18,39 @@
 # along with this set. If not, see <http://www.gnu.org/licenses/>.
 #
 # This explorer prints the currently set options from unbound.conf
+# (and unbound.conf.d/remote-control.conf)
 #
 
 # NOTE: sync with files/params.sh
-test -r /etc/unbound/unbound.conf || exit 0
+set -- /etc/unbound/unbound.conf
+test -r "$1" || exit 0  # this file is required
+for _f in /etc/unbound/unbound.conf.d/remote-control.conf
+do
+	test -r "${_f}" || continue
+	set -- "$@" "${_f}"
+done
+unset -v _f
+
+# DEBUG
+# echo '#files:' "$@"
 
 awk '
-{ sub(/[ \t]*/, "") }
+{ sub(/^[ \t]*/, "") }
 
 /^#/ { next }
 
-/^[ \t]*(auth-zone|cachedb|dnscrypt|dnstap|dynlib|forward-zone|include|include-toplevel|ipset|python|remote-control|rpz|server|stub-zone|view):/ {
-	sub(/[ \t]*/, "")
+/^(auth-zone|forward-zone|include|include-toplevel|ipset|rpz|stub-zone|view):/ {
+	# ignore these sections (they are named or do not contain options)
+	SECTION = ""
+	next
+}
+
+/^(auth-zone|cachedb|dnscrypt|dnstap|dynlib|forward-zone|include|include-toplevel|ipset|python|remote-control|rpz|server|stub-zone|view):/ {
 	SECTION = substr($0, 1, index($0, ":")-1)
 	next
 }
 
-/./ { printf "%s:%s\n", SECTION, $0 }
-' /etc/unbound/unbound.conf
+SECTION && /: / {
+	printf "%s:%s\n", SECTION, $0
+}
+' "$@"
