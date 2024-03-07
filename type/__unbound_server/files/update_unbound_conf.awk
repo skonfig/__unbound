@@ -69,14 +69,14 @@ function top_level_keyword(line) {
 function in_list(list, val,    i, parts) {
 	split(list, parts, SUBSEP)
 	for (i = 1; (i in parts); ++i) {
-		if (length(val) == length(parts[i]) && index(parts[1], val) == 1) {
+		if (val == parts[i]) {
 			return 1
 		}
 	}
 	return 0
 }
 
-function join(arr, sep,    s) {
+function list_join(arr, sep,    s) {
 	s = arr[1]
 	for (i = 2; (i in arr); ++i) {
 		s = s sep arr[i]
@@ -84,20 +84,24 @@ function join(arr, sep,    s) {
 	return s
 }
 
-function drop(list, val,    i, parts) {
+function list_with(list, val) {
+	return (list ? (list SUBSEP val) : val)
+}
+
+function list_without(list, val,    i, parts) {
 	split(list, parts, SUBSEP)
 	for (i = 1; (i in parts); ++i) {
 		if (parts[i] == val) {
 			delete parts[i]
 		}
 	}
-	return join(parts, SUBSEP)
+	return list_join(parts, SUBSEP)
 }
 
 function proc_diff_line(line, conf_set, conf_unset,    op, kwd, opt) {
 	# Extract operation
 	op = substr(line, 1, 1)
-	sub(/^[+=-][ \t]*/, "", line)
+	sub(/^[+=-][ \t]+/, "", line)
 
 	# Extract top-level keyword
 	if (!top_level_keyword(line)) return 1
@@ -118,22 +122,23 @@ function proc_diff_line(line, conf_set, conf_unset,    op, kwd, opt) {
 	sub(/^[ \t]*/, "", line)
 
 	# Process
-	if (op == "=") {
-		conf_set[kwd, opt] = line
-		if ((kwd, opt) in conf_unset) return 3  # remove some and all? wat?!
-		conf_unset[kwd, opt] = ""
-	} else if (op == "+") {
-		if ((kwd, opt) in conf_set)
-			conf_set[kwd, opt] = conf_set[kwd, opt] SUBSEP line
-		else
-			conf_set[kwd, opt] = line
-	} else if (op == "-") {
-		if ((kwd, opt) in conf_unset) {
-			if (!conf_unset[kwd, opt]) return 3  # remove all and some? wat?!
-			conf_unset[kwd, opt] = conf_unset[kwd, opt] SUBSEP line
-		} else {
-			conf_unset[kwd, opt] = line
+	if ("=" == op) {
+		if (conf_unset[kwd, opt]) {
+			# remove some and all? wat?!
+			return 3
 		}
+
+		conf_unset[kwd, opt] = ""
+		conf_set[kwd, opt] = line
+	} else if ("+" == op) {
+		conf_set[kwd, opt] = list_with(conf_set[kwd, opt], line)
+	} else if ("-" == op) {
+		if (((kwd, opt) in conf_unset) && !conf_unset[kwd, opt]) {
+			# remove all and some? wat?!
+			return 3
+		}
+
+		conf_unset[kwd, opt] = list_with(conf_unset[kwd, opt], line)
 	} else {
 		return 4
 	}
