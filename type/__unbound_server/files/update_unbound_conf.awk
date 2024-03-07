@@ -1,9 +1,23 @@
 #!/usr/bin/awk -f
-
-function usage() {
-	print "Usage: awk -f update_unbound_conf.awk /etc/unbound/unbound.conf <diff"
-}
-
+#
+# 2023,2024 Dennis Camera (dennis.camera at riiengineering.ch)
+#
+# This file is part of the skonfig set __unbound.
+#
+# This set is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This set is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this set. If not, see <http://www.gnu.org/licenses/>.
+#
+#
 # WARNING: This code assumes a "sane" unbound config file, i.e. it adheres to
 #          the common layout of options (only one option per line)
 #          This code also does not work with "named" sections.
@@ -14,6 +28,11 @@ function usage() {
 #  + TOP_LEVEL:option: value  (ensure the given value is one of the options)
 #  = TOP_LEVEL:option: value  (ensure only one of "option" is present with "value")
 #  - TOP_LEVEL:option: value? (remove either option with given value or if value is empty all options)
+#
+
+function usage() {
+	print "Usage: awk -f update_unbound_conf.awk /etc/unbound/unbound.conf <diff"
+}
 
 function comment_pos(line) {
 	# returns the position in line at which the comment's text starts
@@ -40,32 +59,38 @@ function get_option(line) {
 
 function top_level_keyword(line) {
 	# NOTE: Hard-coded list of valid top-level keywords as per unbound.conf(5)
-	if (match(line, /^[ \t]*(auth-zone|cachedb|dnscrypt|dnstap|dynlib|forward-zone|ipset|python|remote-control|rpz|server|stub-zone|view):/))
+	if (match(line, /^[ \t]*(auth-zone|cachedb|dnscrypt|dnstap|dynlib|forward-zone|ipset|python|remote-control|rpz|server|stub-zone|view):/)) {
 		return substr(line, RSTART, RLENGTH - 1)
-	else
+	} else {
 		return ""
+	}
 }
 
 function in_list(list, val,    i, parts) {
 	split(list, parts, SUBSEP)
-	for (i = 1; i in parts; ++i)
-		if (length(val) == length(parts[i]) && index(parts[1], val) == 1)
+	for (i = 1; (i in parts); ++i) {
+		if (length(val) == length(parts[i]) && index(parts[1], val) == 1) {
 			return 1
+		}
+	}
 	return 0
 }
 
 function join(arr, sep,    s) {
 	s = arr[1]
-	for (i = 2; i in arr; ++i)
+	for (i = 2; (i in arr); ++i) {
 		s = s sep arr[i]
+	}
 	return s
 }
 
 function drop(list, val,    i, parts) {
 	split(list, parts, SUBSEP)
-	for (i = 1; i in parts; ++i)
-		if (parts[i] == val)
+	for (i = 1; (i in parts); ++i) {
+		if (parts[i] == val) {
 			delete parts[i]
+		}
+	}
 	return join(parts, SUBSEP)
 }
 
@@ -80,8 +105,9 @@ function proc_diff_line(line, conf_set, conf_unset,    op, kwd, opt) {
 	line = substr(line, RSTART + RLENGTH)
 
 	# We only support "singleton" sections
-	if (kwd ~ /^(key|pattern|zone)$/)
+	if (kwd ~ /^(key|pattern|zone)$/) {
 		return 1
+	}
 
 	# Extract option
 	if (!option_len(line)) return 2
@@ -108,7 +134,9 @@ function proc_diff_line(line, conf_set, conf_unset,    op, kwd, opt) {
 		} else {
 			conf_unset[kwd, opt] = line
 		}
-	} else return 4
+	} else {
+		return 4
+	}
 }
 
 function print_rest_for(top_level,    i, k, p, values) {
@@ -116,8 +144,9 @@ function print_rest_for(top_level,    i, k, p, values) {
 		split(k, p, SUBSEP)
 		if (p[1] == top_level) {
 			split(conf_set[k], values, SUBSEP)
-			for (i = 1; i in values; ++i)
+			for (i = 1; i in values; ++i) {
 				printf "\t%s: %s\n", p[2], values[i]
+			}
 
 			delete conf_set[k]
 		}
@@ -135,15 +164,19 @@ BEGIN {
 
 	# Loop over file twice!
 	ARGV[2] = ARGV[1]
-	ARGC++
+	++ARGC
 
 	# Read the "diff" into the `conf_{set,unset}` arrays
 	split("", conf_set)
 	split("", conf_unset)
 	while (0 < ("cat" | getline)) {
-		if (empty_line($0)) continue  # ignore empty lines
-		if (proc_diff_line($0, conf_set, conf_unset))
+		if (empty_line($0) || comment_only_line($0)) {
+			# ignore empty and comment lines
+			continue
+		}
+		if (proc_diff_line($0, conf_set, conf_unset)) {
 			exit (e=1)
+		}
 	}
 	close("cat")
 }
@@ -242,14 +275,15 @@ NR > FNR && FNR == 1 {
 		if ((TOP_LEVEL, option) in conf_unset) {
 			if (conf_unset[TOP_LEVEL, option]) {
 				# only unset some, so check
-				if (!in_list(conf_unset[TOP_LEVEL, option], raw_value))
+				if (!in_list(conf_unset[TOP_LEVEL, option], raw_value)) {
 					printf "%s%s\n", $0, comment
+				}
 			} else {
 				# only set some, so check
 				if (in_list(conf_set[TOP_LEVEL, option], raw_value)) {
 					printf "%s%s\n", $0, comment
 
-					conf_set[TOP_LEVEL, option] = drop( \
+					conf_set[TOP_LEVEL, option] = list_without( \
 						conf_set[TOP_LEVEL, option], raw_value)
 				}
 			}
@@ -267,8 +301,9 @@ line_map[FNR] {
 	option = parts[2]
 
 	split(conf_set[top_level, option], parts, SUBSEP)
-	for (i = 1; i in parts; ++i)
+	for (i = 1; (i in parts); ++i) {
 		printf "\t%s: %s\n", option, parts[i]
+	}
 
 	delete conf_set[top_level, option]
 }
@@ -290,8 +325,9 @@ END {
 	# Print the rest for which no "section" could be found in the input file
 	for (k in conf_set) {
 		split(k, parts, SUBSEP)
-		if (!(parts[1] in missing_sections))
+		if (!(parts[1] in missing_sections)) {
 			missing_sections[parts[1]] = ""
+		}
 	}
 
 	for (top_level in missing_sections) {
