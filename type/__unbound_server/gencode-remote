@@ -80,6 +80,13 @@ fi
 
 config_updated=false
 
+
+# assert the main unbound.conf config file exists
+if ! grep -qxF "#file: ${unbound_conf:?}" "${__object:?}/explorer/options"
+then
+	printf ': >>%s\n' "$(shquot "${unbound_conf:?}")"
+fi
+
 if test -s "${__object:?}/files/server-config-diff"
 then
 	cat <<-CODE
@@ -108,6 +115,12 @@ then
 			if ${is_bookworm:-false}
 			then
 				rc_config_file='/etc/unbound/unbound.conf.d/remote-control.conf'
+
+				# assert the config file exists
+				if ! grep -qxF "#file: ${rc_config_file:?}" "${__object:?}/explorer/options"
+				then
+					printf ': >>%s\n' "$(shquot "${rc_config_file:?}")"
+				fi
 			else
 				rc_config_file=${unbound_conf:?}
 			fi

@@ -37,6 +37,8 @@ unset -v _f
 awk '
 { sub(/^[ \t]*/, "") }
 
+FNR==1 { printf "#file: %s" ORS, FILENAME }
+
 /^#/ { next }
 
 /^(auth-zone|forward-zone|include|include-toplevel|ipset|rpz|stub-zone|view):/ {
