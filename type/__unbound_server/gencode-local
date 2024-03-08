@@ -24,6 +24,8 @@ shquot() {
 	EOF
 }
 
+. "${__type:?}/files/params.sh"
+
 mkdir "${__object:?}/files"
 : >"${__object:?}/files/rc-config-diff"
 : >"${__object:?}/files/server-config-diff"
@@ -166,14 +168,22 @@ config_diff_lines=$(
 			# required for other unbound types
 			diff_line '=' remote-control:control-enable %s yes
 
-			diff_line - remote-control:control-interface
 			if test -s "${__object:?}/parameter/rc-interface"
 			then
+				diff_line - remote-control:control-interface
 				while read -r _line
 				do
 					diff_line '+' remote-control:control-interface %s "${_line}"
 				done <"${__object:?}/parameter/rc-interface"
 				unset -v _line
+			elif test -n "${default_rc_interface-}"
+			then
+				diff_line '=' remote-control:control-interface %s "${default_rc_interface:?}"
+			elif grep -qxF 'lo' "${__global:?}/explorer/interfaces"
+			then
+				diff_line '=' remote-control:control-interface %s 'lo'
+			else
+				diff_line '=' remote-control:control-interface %s '127.0.0.1'
 			fi
 			if test -s "${__object:?}/parameter/rc-port"
 			then

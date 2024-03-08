@@ -91,6 +91,8 @@ rc-interface
 
    If an absolute path is used, a UNIX local named pipe is created (and key and
    cert files are not needed, use directory permissions).
+
+   Defaults to: distro default socket file or ``localhost``.
 rc-port
    The port number the remote control service should listen on.
 rrset-cache-size

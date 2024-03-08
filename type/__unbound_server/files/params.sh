@@ -27,7 +27,15 @@ case ${os}
 in
 	(debian|devuan)
 		package_name=unbound
+		default_rc_interface=/run/unbound.ctl
 		;;
+	# (alpine)
+	# 	package_name=unbound
+	# 	default_rc_interface=/run/unbound.control.sock
+	# 	;;
+	# (gentoo)
+	# 	package_name=unbound
+	# 	;;
 	(*)
 		: "${__type:?}"  # make shellcheck happy
 		printf "Your operating system (%s) is currently not supported by this type (%s)\n" "${os}" "${__type##*/}" >&2
