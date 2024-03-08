@@ -155,25 +155,6 @@ config_diff_lines=$(
 			unset -v _line
 		fi
 
-		diff_line '-' server:access-control
-		if test -s "${__object:?}/parameter/access-control"
-		then
-			while read -r _line
-			do
-				diff_line '+' server:access-control %s "${_line}"
-			done <"${__object:?}/parameter/access-control"
-			unset -v _line
-		fi
-		diff_line '-' server:access-control-view
-		if test -s "${__object:?}/parameter/access-control-view"
-		then
-			while read -r _line
-			do
-				diff_line '+' server:access-control-view %s "${_line}"
-			done <"${__object:?}/parameter/access-control-view"
-			unset -v _line
-		fi
-
 		# defaults (set values from dns-root-data)
 		diff_line '=' server:auto-trust-anchor-file %s '/usr/share/dns/root.key'
 
@@ -199,6 +180,13 @@ config_diff_lines=$(
 				diff_line '=' remote-control:control-port %u "$(get_param rc-port)"
 			fi
 		fi
+
+		# access controls belong to separate config files
+		# cf. cdist-type__unbound_acl(7)
+		diff_line '-' server:access-control
+		diff_line '-' server:access-control-tag
+		diff_line '-' server:access-control-view
+		diff_line '-' server:define-tag
 	} | awk -f "${__type:?}/files/filter_diff.awk" "${__object:?}/explorer/options"
 )
 

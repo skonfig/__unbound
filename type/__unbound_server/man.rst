@@ -21,15 +21,6 @@ Removing a multiple optional parameter will remove that value from the config.
 
 OPTIONAL PARAMETERS
 -------------------
-access-control
-   Specifies a net block for access control to the unbound resolver:
-   ``<IP netblock> <action>``
-
-   For more information, please refer to :strong:`unbound.conf`\ (5).
-
-   This parameter can be used multiple times.
-access-control-view
-   Set view for given access control element.
 cache-max-negative-ttl
    Maximum time to live for negative responses.
    This applies to ``NXDOMAIN`` and ``NODATA`` answers.
