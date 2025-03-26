@@ -38,6 +38,7 @@ config_diff_lines=$(
 	}
 	get_param() { head -n 1 "${__object:?}/parameter/${1:?}"; }
 	bool_value() {
+		# shellcheck disable=SC2046
 		test $(case $1 in (no-*) echo '!' ;; esac) -f "${__object:?}/parameter/${1:?}" \
 			&& echo yes || echo no
 	}

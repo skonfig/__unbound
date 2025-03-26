@@ -64,6 +64,7 @@ then
 
 	# boolean options
 	bool_value() {
+		# shellcheck disable=SC2046
 		test $(case $1 in (no-*|not-*) echo '!' ;; esac) -f "${__object:?}/parameter/${1:?}" \
 			&& echo yes || echo no
 	}
@@ -79,6 +80,7 @@ then
 	done
 
 	# optional options
+	# shellcheck disable=SC2043
 	for _opt in zonefile
 	do
 		test -s "${__object:?}/parameter/${_opt}" || continue

@@ -1,4 +1,4 @@
-#!/bin/sh -e
+# shellcheck disable=SC2034
 #
 # 2024 Dennis Camera (dennis.camera at riiengineering.ch)
 #
